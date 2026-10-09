@@ -168,6 +168,23 @@ selectable-element =
     solvable-element+
   }
 
+# Solvable as written by the install-summary emitter (Summary::writeXmlResolvableList):
+# attributes type/name/edition/arch/repository, optional edition-old/arch-old/summary,
+# optional description child. Unlike solvable-element (status/kind, written by the
+# search-result emitter) this shape matches what Summary actually emits.
+install-summary-solvable-element =
+  element solvable {
+    attribute type { xsd:string },
+    attribute name { xsd:string },
+    attribute edition { xsd:string },
+    attribute arch { xsd:string },
+    attribute repository { xsd:string },
+    attribute edition-old { xsd:string }?,
+    attribute arch-old { xsd:string }?,
+    attribute summary { xsd:string }?,
+    element description { xsd:string }?
+  }
+
 install-summary-element =
   element install-summary {
     attribute download-size { xsd:integer },    # download size in bytes
@@ -178,14 +195,17 @@ install-summary-element =
     attribute need-restart { xsd:boolean },     # package manager restart required
     attribute need-reboot { xsd:boolean },      # system reboot required
     (
-      element to-install { solvable-element+ } |
-      element to-remove { solvable-element+ } |
-      element to-upgrade { solvable-element+ } |
-      element to-downgrade { solvable-element+ } |
-      element to-upgrade-change-arch { solvable-element+ } |
-      element to-downgrade-change-arch { solvable-element+ } |
-      element to-reinstall { solvable-element+ } |
-      element to-change-arch { solvable-element+ }
+      element to-install { install-summary-solvable-element+ } |
+      element to-remove { install-summary-solvable-element+ } |
+      element to-upgrade { install-summary-solvable-element+ } |
+      element to-downgrade { install-summary-solvable-element+ } |
+      element to-upgrade-change-arch { install-summary-solvable-element+ } |
+      element to-downgrade-change-arch { install-summary-solvable-element+ } |
+      element to-reinstall { install-summary-solvable-element+ } |
+      element to-change-arch { install-summary-solvable-element+ } |
+      element to-change-vendor { install-summary-solvable-element+ } |
+      element _unsupported { install-summary-solvable-element+ } |
+      element auto-resolved { attribute option { xsd:string }, install-summary-solvable-element* }
     )*
   }
 
