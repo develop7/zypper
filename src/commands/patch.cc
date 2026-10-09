@@ -65,6 +65,7 @@ zypp::ZyppFlags::CommandGroup PatchCmd::cmdOptions() const
 void PatchCmd::doReset()
 {
   _updateStackOnly = false;
+  _skipNotApplicablePatches = false;
   _withUpdate = false;
   _details = false;
 }

@@ -171,6 +171,25 @@ namespace {
 
 // --------------------------------------------------------------------------
 
+std::set<PoolItem> & SummaryHints::autoResolvedItems( const AutoResolveStrategy & strategy_r )
+{
+  for ( size_t i = 0; i < _strategies.size(); ++i ) {
+    if ( _strategies[i] == &strategy_r )
+      return _items[i];
+  }
+  _strategies.push_back( &strategy_r );
+  _items.push_back( std::set<PoolItem>() );
+  return _items.back();
+}
+
+const AutoResolveStrategy & SummaryHints::autoResolvedStrategy( size_t idx_r ) const
+{ return *_strategies[idx_r]; }
+
+size_t SummaryHints::autoResolvedCount() const
+{ return _strategies.size(); }
+
+// --------------------------------------------------------------------------
+
 bool Summary::ResPairNameCompare::operator()( const ResPair & p1, const ResPair & p2 ) const
 {
   int ret = ::strcoll( p1.second->name().c_str(), p2.second->name().c_str() );
@@ -1559,10 +1578,13 @@ void Summary::writeRebootNeeded( std::ostream & out )
 
 void Summary::writeAutoResolved( std::ostream & out )
 {
-  if ( _summaryHints.haveSkippedPatches() ) {
-    std::string label { _("Skipped needed patches which do not apply without conflict:") };
-    out << endl << ( ColorContext::MSG_WARNING << label << " [-skip-not-applicable-patches]" ) << endl;
-    writeSolvableList( out, _summaryHints.skippedPatchesSet(), ColorContext::MSG_WARNING );
+  for ( size_t i = 0; i < _summaryHints.autoResolvedCount(); ++i ) {
+    const auto & strategy { _summaryHints.autoResolvedStrategy( i ) };
+    const auto & items { _summaryHints.autoResolvedItems( strategy ) };
+    if ( items.empty() )
+      continue;
+    out << endl << ( ColorContext::MSG_WARNING << strategy.summaryLabel() << " [" << strategy.flagHint << "]" ) << endl;
+    writeSolvableList( out, items, ColorContext::MSG_WARNING );
   }
 }
 
@@ -1959,6 +1981,23 @@ void Summary::dumpAsXmlTo( std::ostream & out )
     writeXmlResolvableList( out, _supportUnknown );
     writeXmlResolvableList( out, _supportUnsupported );
     out << "</_unsupported>" << endl;
+  }
+
+  for ( size_t i = 0; i < _summaryHints.autoResolvedCount(); ++i ) {
+    const auto & strategy { _summaryHints.autoResolvedStrategy( i ) };
+    const auto & items { _summaryHints.autoResolvedItems( strategy ) };
+    if ( items.empty() )
+      continue;
+    out << "<auto-resolved option=\"" << strategy.flagHint << "\">" << endl;
+    for ( const auto & pi : items ) {
+      out << "<solvable"
+          << " type=\"" << pi->kind() << "\""
+          << " name=\"" << pi->name() << "\""
+          << " edition=\"" << pi->edition() << "\""
+          << " arch=\"" << pi->arch() << "\""
+          << " repository=\"" << pi->repoInfo().alias() << "\"/>" << endl;
+    }
+    out << "</auto-resolved>" << endl;
   }
 
   out << "</install-summary>" << endl;

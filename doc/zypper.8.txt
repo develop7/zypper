@@ -779,8 +779,11 @@ It might be less tedious to persistently set *$releasever* to the target distrib
 
 	*--remove-orphaned*::
 		Remove orphaned packages. Installed packages which are not provided by at least one of the available repositories are considered to be orphaned or dropped. *dist-upgrade* removes orphaned packages if they prevent the upgrade of wanted packages. With this option all unneeded orphaned packages are removed.
+
+	*--keep-installed*::
+		Auto-apply solutions that merely keep installed packages in place (lock them for this session), e.g. *keep obsolete <pkg>*, rather than asking to resolve the problem. Such solutions never install or remove anything. Problems without such a solution still have to be resolved interactively; in non-interactive mode they abort the command.
 +
-		'Note:' Packages which are not shipped within a repository - manually built or downloaded ones -, can be collected in a plaindir repository to prevent them from being treated as orphaned. See section *System Packages* for details.
+In scripted and unattended environments this avoids having to abort the whole distribution upgrade just because one package cannot be replaced. The kept packages are listed in the summary and reported in *--xmlout* mode (element _auto-resolved_); run *zypper dup* again without the option once the conflicting packages have been taken care of to replace them.
 
 	-r, --repo alias|name|#|URI::
 		Work only with the repository specified by the alias, name, number, or URI.

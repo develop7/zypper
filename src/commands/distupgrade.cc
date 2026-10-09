@@ -40,6 +40,10 @@ zypp::ZyppFlags::CommandGroup DistUpgradeCmd::cmdOptions() const
     { "remove-orphaned", '\0', ZyppFlags::NoArgument, ZyppFlags::TriBoolType( set._removeOrphaned, ZyppFlags::StoreTrue ),
       _("Remove unneeded orphaned packages.")
     },
+    { "keep-installed", '\0', ZyppFlags::NoArgument, ZyppFlags::BoolType( &that->_keepInstalled, ZyppFlags::StoreTrue, _keepInstalled ),
+      // translators: --keep-installed
+      _("Auto-apply solutions that merely keep installed packages in place (lock them for this session), e.g. 'keep obsolete <pkg>'; never install or remove anything. Other problems still have to be resolved manually, so in non-interactive mode they abort.")
+    },
     CommonFlags::detailsFlag( that->_details )
   });
 }
@@ -64,6 +68,7 @@ void DistUpgradeCmd::doReset()
 {
   DupSettings::reset();
   _details = false;
+  _keepInstalled = false;
 }
 
 std::vector<BaseCommandConditionPtr> DistUpgradeCmd::conditions() const
@@ -96,6 +101,8 @@ int DistUpgradeCmd::execute( Zypper &zypper, const std::vector<std::string> &pos
     viewOpts = ( Summary::ViewOptions ) ( viewOpts | Summary::ViewOptions::DETAILS );
   }
 
-  solve_and_commit( zypper, SolveAndCommitPolicy( ).summaryOptions( viewOpts ).downloadMode( _downloadModeOpts.mode() ) );
+  SolveAndCommitPolicy policy;
+  policy.summaryOptions( viewOpts ).downloadMode( _downloadModeOpts.mode() ).keepInstalled( _keepInstalled );
+  solve_and_commit( zypper, std::move( policy ) );
   return zypper.exitCode();
 }

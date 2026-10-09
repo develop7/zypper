@@ -18,6 +18,7 @@ public:
 
 private:
   bool _details = false;
+  bool _keepInstalled = false;
   FileConflictPolicyOptionSet _fileConflictOpts { *this };
   InitReposOptionSet _initReposOpts { *this };
   LicensePolicyOptionSet _licensePolicyOpts { *this };

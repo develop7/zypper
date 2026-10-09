@@ -43,6 +43,17 @@ struct SolveAndCommitPolicy {
   bool skipNotApplicablePatches() const;
   SolveAndCommitPolicy & skipNotApplicablePatches( bool enable );
 
+  /**
+   * Auto-apply solutions that merely keep installed items locked in place
+   * (session lock, e.g. 'keep obsolete <pkg>' in a dist-upgrade) rather than
+   * asking the user ('dup --keep-installed'). Requires libzypp >= 17.39.0;
+   * silently a no-op with older libzypp.
+   */
+  SolveAndCommitPolicy & keepInstalled( bool enable );
+
+  /** The active auto-resolve strategies (may be empty). */
+  const std::vector<AutoResolveStrategy> & autoResolveStrategies() const;
+
   /*!
    * Changes the amount of information included by the summary
    */
@@ -62,8 +73,10 @@ struct SolveAndCommitPolicy {
 private:
   bool _forceCommit = false;
   bool _skipNotApplicablePatches = false;
+  bool _keepInstalled = false;
   Summary::ViewOptions _summaryOptions = Summary::DEFAULT;
   ZYppCommitPolicy _zyppCommitPolicy;
+  mutable std::vector<AutoResolveStrategy> _autoResolveStrategies;
 };
 
 /**
