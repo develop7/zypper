@@ -171,6 +171,21 @@ namespace {
 
 // --------------------------------------------------------------------------
 
+std::set<PoolItem> & SummaryHints::autoResolvedItems( const AutoResolveStrategy & strategy_r )
+{
+  // Matched by the CLI option that enabled the strategy; strategies are
+  // stored by value so the hints stay valid independent of any caller-side
+  // strategy container. First claim wins, entries render in claim order.
+  for ( auto & entry : _autoResolved ) {
+    if ( strcmp( entry.strategy.flagHint, strategy_r.flagHint ) == 0 )
+      return entry.items;
+  }
+  _autoResolved.push_back( { strategy_r, std::set<PoolItem>() } );
+  return _autoResolved.back().items;
+}
+
+// --------------------------------------------------------------------------
+
 bool Summary::ResPairNameCompare::operator()( const ResPair & p1, const ResPair & p2 ) const
 {
   int ret = ::strcoll( p1.second->name().c_str(), p2.second->name().c_str() );
@@ -1559,10 +1574,11 @@ void Summary::writeRebootNeeded( std::ostream & out )
 
 void Summary::writeAutoResolved( std::ostream & out )
 {
-  if ( _summaryHints.haveSkippedPatches() ) {
-    std::string label { _("Skipped needed patches which do not apply without conflict:") };
-    out << endl << ( ColorContext::MSG_WARNING << label << " [-skip-not-applicable-patches]" ) << endl;
-    writeSolvableList( out, _summaryHints.skippedPatchesSet(), ColorContext::MSG_WARNING );
+  for ( const auto & entry : _summaryHints.autoResolved() ) {
+    if ( entry.items.empty() )
+      continue;
+    out << endl << ( ColorContext::MSG_WARNING << _(entry.strategy.summaryLabel) << " [" << entry.strategy.flagHint << "]" ) << endl;
+    writeSolvableList( out, entry.items, ColorContext::MSG_WARNING );
   }
 }
 
@@ -1959,6 +1975,21 @@ void Summary::dumpAsXmlTo( std::ostream & out )
     writeXmlResolvableList( out, _supportUnknown );
     writeXmlResolvableList( out, _supportUnsupported );
     out << "</_unsupported>" << endl;
+  }
+
+  for ( const auto & entry : _summaryHints.autoResolved() ) {
+    if ( entry.items.empty() )
+      continue;
+    out << "<auto-resolved option=\"" << xml::escape( std::string(entry.strategy.flagHint) ) << "\">" << endl;
+    for ( const auto & pi : entry.items ) {
+      out << "<solvable"
+          << " type=\"" << xml::escape( pi->kind().asString() ) << "\""
+          << " name=\"" << xml::escape( pi->name() ) << "\""
+          << " edition=\"" << xml::escape( pi->edition().asString() ) << "\""
+          << " arch=\"" << xml::escape( pi->arch().asString() ) << "\""
+          << " repository=\"" << xml::escape( pi->repoInfo().alias() ) << "\"/>" << endl;
+    }
+    out << "</auto-resolved>" << endl;
   }
 
   out << "</install-summary>" << endl;

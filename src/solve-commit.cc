@@ -10,6 +10,7 @@
 #include <optional>
 
 #include <zypp/ZYppFactory.h>
+#include <zypp/ProblemSolution.h>
 #include <zypp-core/base/Logger.h>
 #include <zypp-core/TriBool.h>
 #include <zypp/FileChecker.h>
@@ -252,8 +253,9 @@ static bool show_problems( Zypper & zypper, SolveAndCommitPolicy & policy )
 
   ProblemSolutionList pendingSolutions; // List of solutions to apply before retrying.
 
-  bool printAbstract = rproblems.size() > 1;              // print all problems in advance, not just auto-resolvable ones
-  bool mayAutoResolve = policy.skipNotApplicablePatches(); // by now just NotApplicablePatches
+  bool printAbstract = rproblems.size() > 1; // print all problems in advance, not just auto-resolvable ones
+  const std::vector<AutoResolveStrategy> strategies { policy.autoResolveStrategies() }; // active auto-resolve strategies (may be empty)
+  bool mayAutoResolve = not strategies.empty();
 
   if ( printAbstract ) {
     // display the number of problems
@@ -275,11 +277,11 @@ static bool show_problems( Zypper & zypper, SolveAndCommitPolicy & policy )
         unsigned s = 0;
         for ( const auto & solPtr : probPtr->solutions() )
         {
-          if ( policy.skipNotApplicablePatches() ) {
-            std::optional<std::set<PoolItem>> items { solPtr->getIfSkipsPatchesOnly() };
+          for ( const auto & strategy : strategies ) {
+            std::optional<std::set<PoolItem>> items { strategy.match( *solPtr ) };
             if ( items ) {
               pendingSolutions.push_back( solPtr );
-              policy.summaryHints.skippedPatchesSet().merge( std::move(*items) );
+              policy.summaryHints.autoResolvedItems( strategy ).merge( std::move(*items) );
               items.reset();  // moved out
               if ( not printAbstract ) { // was not printed before
                 dumpProblem( zypper.out().info(), p, *probPtr );
@@ -290,8 +292,9 @@ static bool show_problems( Zypper & zypper, SolveAndCommitPolicy & policy )
                 printAbstract = false;
               }
               // translator: The tag says that the preceding dependency problem is auto-resolved by applying the following solution
-              zypper.out().infoLRHint( HIGHLIGHTString(indent( _("Autoresolve:"), 1 )).str(), "--skip-not-applicable-patches" );
+              zypper.out().infoLRHint( HIGHLIGHTString(indent( _("Autoresolve:"), 1 )).str(), strategy.flagHint );
               dumpSolution( zypper.out().info(), ++s, *solPtr );
+              break; // solution claimed by this strategy, no other strategy may claim it too
             }
           }
         }
@@ -576,6 +579,47 @@ bool SolveAndCommitPolicy::skipNotApplicablePatches() const
 
 SolveAndCommitPolicy & SolveAndCommitPolicy::skipNotApplicablePatches( bool enable )
 { _skipNotApplicablePatches = enable; return *this; }
+
+namespace {
+// The auto-resolve strategies enabled by their CLI option. Defined here so
+// predicate, flag hint and summary label travel as one value. The label is
+// an untranslated msgid (N_) - Summary translates it at render time.
+
+std::optional<std::set<PoolItem>> matchSkipsPatchesOnly( const ProblemSolution & sol_r )
+{ return sol_r.getIfSkipsPatchesOnly(); }
+
+#if ZYPP_HAVE_LOCKS_INSTALLED_ONLY
+std::optional<std::set<PoolItem>> matchLocksInstalledOnly( const ProblemSolution & sol_r )
+{ return sol_r.getIfLocksInstalledOnly(); }
+#endif
+} // namespace
+
+SolveAndCommitPolicy & SolveAndCommitPolicy::keepInstalled( bool enable )
+{ _keepInstalled = enable; return *this; }
+
+std::vector<AutoResolveStrategy> SolveAndCommitPolicy::autoResolveStrategies() const
+{
+  std::vector<AutoResolveStrategy> strategies;
+  // Each strategy must have a unique flagHint: it identifies the strategy
+  // when collecting the auto-resolved items.
+  auto uniqueFlagHint = [ &strategies ]( const char * flagHint_r ) {
+    for ( const auto & s : strategies )
+      if ( strcmp( s.flagHint, flagHint_r ) == 0 )
+        return false;
+    return true;
+  };
+  if ( _skipNotApplicablePatches && uniqueFlagHint( "--skip-not-applicable-patches" ) )
+    strategies.push_back( { matchSkipsPatchesOnly, "--skip-not-applicable-patches",
+      // translator: heading the list of patches skipped by 'patch --skip-not-applicable-patches'
+      N_("Skipped needed patches which do not apply without conflict:") } );
+#if ZYPP_HAVE_LOCKS_INSTALLED_ONLY
+  if ( _keepInstalled && uniqueFlagHint( "--keep-installed" ) )
+    strategies.push_back( { matchLocksInstalledOnly, "--keep-installed",
+      // translator: heading the list of items kept in place by 'dup --keep-installed'
+      N_("Kept installed although a dist-upgrade would have replaced them:") } );
+#endif
+  return strategies;
+}
 
 const Summary::ViewOptions &SolveAndCommitPolicy::summaryOptions() const
 { return _summaryOptions; }

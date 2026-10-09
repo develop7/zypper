@@ -782,6 +782,11 @@ It might be less tedious to persistently set *$releasever* to the target distrib
 +
 		'Note:' Packages which are not shipped within a repository - manually built or downloaded ones -, can be collected in a plaindir repository to prevent them from being treated as orphaned. See section *System Packages* for details.
 
+	*--keep-installed*::
+		Auto-apply solutions that merely keep installed packages in place (lock them for this session), e.g. *keep obsolete <pkg>*, rather than asking to resolve the problem. Such solutions never install or remove anything. Problems without such a solution still have to be resolved interactively; in non-interactive mode they abort the command.
++
+In scripted and unattended environments this avoids having to abort the whole distribution upgrade just because one package cannot be replaced. The kept packages are listed in the summary and reported in *--xmlout* mode (element _auto-resolved_); run *zypper dup* again without the option once the conflicting packages have been taken care of to replace them. Requires libzypp 17.39.0 or newer; with older libzypp the option is accepted but ignored.
+
 	-r, --repo alias|name|#|URI::
 		Work only with the repository specified by the alias, name, number, or URI.
 +

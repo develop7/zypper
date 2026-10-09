@@ -1,4 +1,27 @@
 -------------------------------------------------------------------
+Thu Oct 9 16:30:00 UTC 2026 - develop7@develop7.info
+
+- dup: Add --keep-installed option
+  Auto-apply solutions that merely keep installed packages in
+  place (lock them for this session), e.g. 'keep obsolete <pkg>',
+  rather than asking to resolve the problem. Such solutions never
+  install or remove anything; problems without such a solution
+  still have to be resolved interactively (they abort in
+  non-interactive mode). This avoids aborting a whole unattended
+  dist-upgrade just because one package cannot be replaced.
+  Requires libzypp >= 17.39.0 (ProblemSolution::
+  getIfLocksInstalledOnly); with older libzypp dup warns that
+  the option is ignored.
+- Refactor solver problem auto-resolution into AutoResolveStrategy
+  (predicate, flag hint and summary label travel as one value);
+  --skip-not-applicable-patches is migrated to it. Auto-resolved
+  items are now also reported in --xmlout mode (element
+  'auto-resolved').
+- Fix PatchCmd not resetting --skip-not-applicable-patches between
+  commands in the zypper shell.
+- version 1.14.102
+
+-------------------------------------------------------------------
 Fri Sep  4 15:04:27 CEST 2026 - ma@suse.de
 
 - Show solver problem details per default in not-interactive mode

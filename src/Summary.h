@@ -11,6 +11,8 @@
 #include <set>
 #include <map>
 #include <iosfwd>
+#include <optional>
+#include <vector>
 
 #include <zypp-core/base/PtrTypes.h>
 #include <zypp-core/ByteCount.h>
@@ -19,19 +21,50 @@
 #include <zypp/ResPool.h>
 #include "utils/ansi.h"
 
+namespace zypp { class ProblemSolution; }
+
+/**
+ * One active auto-resolve strategy for solver problems.
+ *
+ * A strategy classifies a problem solution: if \ref match returns the
+ * items the solution would keep in place (i.e. it is non-invasive in
+ * the intended way), show_problems auto-applies it rather than asking
+ * the user. \ref flagHint names the CLI option that enabled the
+ * strategy (shown as "Autoresolve:" LR-hint and in the summary),
+ * \ref summaryLabel heads the item list in the summary.
+ */
+struct AutoResolveStrategy {
+  using Match = std::optional<std::set<PoolItem>> (*)( const zypp::ProblemSolution & );
+
+  /// Both strings must point to static storage (string literals); never null,
+  /// lifetime = program. flagHint additionally identifies the strategy when
+  /// collecting the auto-resolved items (unique per strategy).
+  Match match;          ///< classifies a solution (nullopt: not ours)
+  const char *flagHint; ///< CLI option that enabled the strategy
+  const char *summaryLabel; ///< untranslated heading for the Summary (mark N_(), render _())
+};
+
 /// \brief Information collected in SolveAndCommit which is to be shown in the summary.
+///
+/// Auto-resolved problems (solutions auto-applied by an AutoResolveStrategy,
+/// e.g. '--skip-not-applicable-patches' or 'dup --keep-installed') are
+/// remembered per strategy: the items the strategy kept in place, headed by
+/// the strategy's summary label in the summary output.
 struct SummaryHints
 {
   void clear() { *this = SummaryHints(); }
 
-  bool haveSkippedPatches() const
-  { return _skippedPatches && not _skippedPatches->empty(); }
+  /// The strategies that collected items so far (in order of first claim).
+  struct AutoResolved {
+    AutoResolveStrategy strategy; ///< copy of the claiming strategy
+    std::set<PoolItem> items;     ///< the items it kept in place
+  };
 
-  std::set<PoolItem> & skippedPatchesSet()
-  { if ( not _skippedPatches ) _skippedPatches = std::set<PoolItem>(); return *_skippedPatches; }
+  std::set<PoolItem> & autoResolvedItems( const AutoResolveStrategy & strategy_r );
+  const std::vector<AutoResolved> & autoResolved() const { return _autoResolved; }
 
 private:
-  std::optional<std::set<PoolItem>> _skippedPatches; ///< --skip-not-applicable-patches
+  std::vector<AutoResolved> _autoResolved;
 };
 
 

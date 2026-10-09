@@ -15,6 +15,14 @@
 #ifndef SOLVE_COMMIT_H_
 #define SOLVE_COMMIT_H_
 
+// Whether libzypp provides ProblemSolution::getIfLocksInstalledOnly
+// (17.39.0); gates the 'dup --keep-installed' auto-resolve strategy.
+#if LIBZYPP_VERSION >= 173900
+#define ZYPP_HAVE_LOCKS_INSTALLED_ONLY 1
+#else
+#define ZYPP_HAVE_LOCKS_INSTALLED_ONLY 0
+#endif
+
 #include "Zypper.h"
 #include "Summary.h"
 
@@ -43,6 +51,17 @@ struct SolveAndCommitPolicy {
   bool skipNotApplicablePatches() const;
   SolveAndCommitPolicy & skipNotApplicablePatches( bool enable );
 
+  /**
+   * Auto-apply solutions that merely keep installed items locked in place
+   * (session lock, e.g. 'keep obsolete <pkg>' in a dist-upgrade) rather than
+   * asking the user ('dup --keep-installed'). Requires libzypp >= 17.39.0;
+   * with older libzypp the policy ignores the flag (dup warns about it).
+   */
+  SolveAndCommitPolicy & keepInstalled( bool enable );
+
+  /** The active auto-resolve strategies (may be empty). */
+  std::vector<AutoResolveStrategy> autoResolveStrategies() const;
+
   /*!
    * Changes the amount of information included by the summary
    */
@@ -62,6 +81,7 @@ struct SolveAndCommitPolicy {
 private:
   bool _forceCommit = false;
   bool _skipNotApplicablePatches = false;
+  bool _keepInstalled = false;
   Summary::ViewOptions _summaryOptions = Summary::DEFAULT;
   ZYppCommitPolicy _zyppCommitPolicy;
 };
