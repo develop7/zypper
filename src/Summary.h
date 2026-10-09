@@ -17,10 +17,11 @@
 #include <zypp-core/base/PtrTypes.h>
 #include <zypp-core/ByteCount.h>
 #include <zypp-core/base/DefaultIntegral>
-#include <zypp/ProblemSolution.h>
 #include <zypp/ResObject.h>
 #include <zypp/ResPool.h>
 #include "utils/ansi.h"
+
+namespace zypp { class ProblemSolution; }
 
 /**
  * One active auto-resolve strategy for solver problems.
@@ -33,12 +34,11 @@
  * \ref summaryLabel heads the item list in the summary.
  */
 struct AutoResolveStrategy {
-  using Match = std::optional<std::set<PoolItem>> (*)( const ProblemSolution & );
-  using Label = std::string (*)(); ///< translated heading for the Summary
+  using Match = std::optional<std::set<PoolItem>> (*)( const zypp::ProblemSolution & );
 
   Match match;          ///< classifies a solution (nullopt: not ours)
   const char *flagHint; ///< CLI option that enabled the strategy
-  Label summaryLabel;   ///< heading the item list in the Summary
+  const char *summaryLabel; ///< untranslated heading for the Summary (mark N_(), render _())
 };
 
 /// \brief Information collected in SolveAndCommit which is to be shown in the summary.
@@ -51,14 +51,17 @@ struct SummaryHints
 {
   void clear() { *this = SummaryHints(); }
 
-  /// A strategy's collected items (created on demand, ordered by first use).
+  /// The strategies that collected items so far (in order of first claim).
+  struct AutoResolved {
+    AutoResolveStrategy strategy; ///< copy of the claiming strategy
+    std::set<PoolItem> items;     ///< the items it kept in place
+  };
+
   std::set<PoolItem> & autoResolvedItems( const AutoResolveStrategy & strategy_r );
-  const AutoResolveStrategy & autoResolvedStrategy( size_t idx_r ) const;
-  size_t autoResolvedCount() const;
+  const std::vector<AutoResolved> & autoResolved() const { return _autoResolved; }
 
 private:
-  std::vector<const AutoResolveStrategy *> _strategies; ///< strategies that collected items (in order)
-  std::vector<std::set<PoolItem>> _items;               ///< one item set per strategy
+  std::vector<AutoResolved> _autoResolved;
 };
 
 

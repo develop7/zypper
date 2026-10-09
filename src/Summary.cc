@@ -173,20 +173,16 @@ namespace {
 
 std::set<PoolItem> & SummaryHints::autoResolvedItems( const AutoResolveStrategy & strategy_r )
 {
-  for ( size_t i = 0; i < _strategies.size(); ++i ) {
-    if ( _strategies[i] == &strategy_r )
-      return _items[i];
+  // Matched by the CLI option that enabled the strategy; strategies are
+  // stored by value so the hints stay valid independent of any caller-side
+  // strategy container. First claim wins, entries render in claim order.
+  for ( auto & entry : _autoResolved ) {
+    if ( strcmp( entry.strategy.flagHint, strategy_r.flagHint ) == 0 )
+      return entry.items;
   }
-  _strategies.push_back( &strategy_r );
-  _items.push_back( std::set<PoolItem>() );
-  return _items.back();
+  _autoResolved.push_back( { strategy_r, std::set<PoolItem>() } );
+  return _autoResolved.back().items;
 }
-
-const AutoResolveStrategy & SummaryHints::autoResolvedStrategy( size_t idx_r ) const
-{ return *_strategies[idx_r]; }
-
-size_t SummaryHints::autoResolvedCount() const
-{ return _strategies.size(); }
 
 // --------------------------------------------------------------------------
 
@@ -1578,13 +1574,11 @@ void Summary::writeRebootNeeded( std::ostream & out )
 
 void Summary::writeAutoResolved( std::ostream & out )
 {
-  for ( size_t i = 0; i < _summaryHints.autoResolvedCount(); ++i ) {
-    const auto & strategy { _summaryHints.autoResolvedStrategy( i ) };
-    const auto & items { _summaryHints.autoResolvedItems( strategy ) };
-    if ( items.empty() )
+  for ( const auto & entry : _summaryHints.autoResolved() ) {
+    if ( entry.items.empty() )
       continue;
-    out << endl << ( ColorContext::MSG_WARNING << strategy.summaryLabel() << " [" << strategy.flagHint << "]" ) << endl;
-    writeSolvableList( out, items, ColorContext::MSG_WARNING );
+    out << endl << ( ColorContext::MSG_WARNING << _(entry.strategy.summaryLabel) << " [" << entry.strategy.flagHint << "]" ) << endl;
+    writeSolvableList( out, entry.items, ColorContext::MSG_WARNING );
   }
 }
 
@@ -1983,19 +1977,17 @@ void Summary::dumpAsXmlTo( std::ostream & out )
     out << "</_unsupported>" << endl;
   }
 
-  for ( size_t i = 0; i < _summaryHints.autoResolvedCount(); ++i ) {
-    const auto & strategy { _summaryHints.autoResolvedStrategy( i ) };
-    const auto & items { _summaryHints.autoResolvedItems( strategy ) };
-    if ( items.empty() )
+  for ( const auto & entry : _summaryHints.autoResolved() ) {
+    if ( entry.items.empty() )
       continue;
-    out << "<auto-resolved option=\"" << strategy.flagHint << "\">" << endl;
-    for ( const auto & pi : items ) {
+    out << "<auto-resolved option=\"" << xml::escape( std::string(entry.strategy.flagHint) ) << "\">" << endl;
+    for ( const auto & pi : entry.items ) {
       out << "<solvable"
-          << " type=\"" << pi->kind() << "\""
-          << " name=\"" << pi->name() << "\""
-          << " edition=\"" << pi->edition() << "\""
-          << " arch=\"" << pi->arch() << "\""
-          << " repository=\"" << pi->repoInfo().alias() << "\"/>" << endl;
+          << " type=\"" << xml::escape( pi->kind().asString() ) << "\""
+          << " name=\"" << xml::escape( pi->name() ) << "\""
+          << " edition=\"" << xml::escape( pi->edition().asString() ) << "\""
+          << " arch=\"" << xml::escape( pi->arch().asString() ) << "\""
+          << " repository=\"" << xml::escape( pi->repoInfo().alias() ) << "\"/>" << endl;
     }
     out << "</auto-resolved>" << endl;
   }

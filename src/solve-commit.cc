@@ -10,6 +10,7 @@
 #include <optional>
 
 #include <zypp/ZYppFactory.h>
+#include <zypp/ProblemSolution.h>
 #include <zypp-core/base/Logger.h>
 #include <zypp-core/TriBool.h>
 #include <zypp/FileChecker.h>
@@ -253,7 +254,7 @@ static bool show_problems( Zypper & zypper, SolveAndCommitPolicy & policy )
   ProblemSolutionList pendingSolutions; // List of solutions to apply before retrying.
 
   bool printAbstract = rproblems.size() > 1; // print all problems in advance, not just auto-resolvable ones
-  const std::vector<AutoResolveStrategy> & strategies { policy.autoResolveStrategies() }; // active auto-resolve strategies (may be empty)
+  const std::vector<AutoResolveStrategy> strategies { policy.autoResolveStrategies() }; // active auto-resolve strategies (may be empty)
   bool mayAutoResolve = not strategies.empty();
 
   if ( printAbstract ) {
@@ -581,42 +582,35 @@ SolveAndCommitPolicy & SolveAndCommitPolicy::skipNotApplicablePatches( bool enab
 
 namespace {
 // The auto-resolve strategies enabled by their CLI option. Defined here so
-// predicate, flag hint and summary label travel as one value.
+// predicate, flag hint and summary label travel as one value. The label is
+// an untranslated msgid (N_) - Summary translates it at render time.
 
 std::optional<std::set<PoolItem>> matchSkipsPatchesOnly( const ProblemSolution & sol_r )
 { return sol_r.getIfSkipsPatchesOnly(); }
 
-std::string asTrSkippedPatchesLabel()
-{
-  // translator: heading the list of patches skipped by 'patch --skip-not-applicable-patches'
-  return _("Skipped needed patches which do not apply without conflict:");
-}
-
 #if LIBZYPP_VERSION >= 173900 // ProblemSolution::getIfLocksInstalledOnly
 std::optional<std::set<PoolItem>> matchLocksInstalledOnly( const ProblemSolution & sol_r )
 { return sol_r.getIfLocksInstalledOnly(); }
-
-std::string asTrKeptInstalledLabel()
-{
-  // translator: heading the list of items kept in place by 'dup --keep-installed'
-  return _("Kept installed although a dist-upgrade would have replaced them:");
-}
 #endif
 } // namespace
 
 SolveAndCommitPolicy & SolveAndCommitPolicy::keepInstalled( bool enable )
 { _keepInstalled = enable; return *this; }
 
-const std::vector<AutoResolveStrategy> & SolveAndCommitPolicy::autoResolveStrategies() const
+std::vector<AutoResolveStrategy> SolveAndCommitPolicy::autoResolveStrategies() const
 {
-  _autoResolveStrategies.clear();
+  std::vector<AutoResolveStrategy> strategies;
   if ( _skipNotApplicablePatches )
-    _autoResolveStrategies.push_back( { matchSkipsPatchesOnly, "--skip-not-applicable-patches", asTrSkippedPatchesLabel } );
+    strategies.push_back( { matchSkipsPatchesOnly, "--skip-not-applicable-patches",
+      // translator: heading the list of patches skipped by 'patch --skip-not-applicable-patches'
+      N_("Skipped needed patches which do not apply without conflict:") } );
 #if LIBZYPP_VERSION >= 173900 // ProblemSolution::getIfLocksInstalledOnly
   if ( _keepInstalled )
-    _autoResolveStrategies.push_back( { matchLocksInstalledOnly, "--keep-installed", asTrKeptInstalledLabel } );
+    strategies.push_back( { matchLocksInstalledOnly, "--keep-installed",
+      // translator: heading the list of items kept in place by 'dup --keep-installed'
+      N_("Kept installed although a dist-upgrade would have replaced them:") } );
 #endif
-  return _autoResolveStrategies;
+  return strategies;
 }
 
 const Summary::ViewOptions &SolveAndCommitPolicy::summaryOptions() const

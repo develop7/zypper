@@ -101,6 +101,11 @@ int DistUpgradeCmd::execute( Zypper &zypper, const std::vector<std::string> &pos
     viewOpts = ( Summary::ViewOptions ) ( viewOpts | Summary::ViewOptions::DETAILS );
   }
 
+#if LIBZYPP_VERSION < 173900 // ProblemSolution::getIfLocksInstalledOnly
+  if ( _keepInstalled )
+    zypper.out().warning( str::form( _("Option %s is ignored: it requires libzypp >= 17.39.0."), "--keep-installed" ) );
+#endif
+
   SolveAndCommitPolicy policy;
   policy.summaryOptions( viewOpts ).downloadMode( _downloadModeOpts.mode() ).keepInstalled( _keepInstalled );
   solve_and_commit( zypper, std::move( policy ) );

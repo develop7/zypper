@@ -52,7 +52,7 @@ struct SolveAndCommitPolicy {
   SolveAndCommitPolicy & keepInstalled( bool enable );
 
   /** The active auto-resolve strategies (may be empty). */
-  const std::vector<AutoResolveStrategy> & autoResolveStrategies() const;
+  std::vector<AutoResolveStrategy> autoResolveStrategies() const;
 
   /*!
    * Changes the amount of information included by the summary
@@ -76,7 +76,6 @@ private:
   bool _keepInstalled = false;
   Summary::ViewOptions _summaryOptions = Summary::DEFAULT;
   ZYppCommitPolicy _zyppCommitPolicy;
-  mutable std::vector<AutoResolveStrategy> _autoResolveStrategies;
 };
 
 /**
