@@ -36,6 +36,9 @@ namespace zypp { class ProblemSolution; }
 struct AutoResolveStrategy {
   using Match = std::optional<std::set<PoolItem>> (*)( const zypp::ProblemSolution & );
 
+  /// Both strings must point to static storage (string literals); never null,
+  /// lifetime = program. flagHint additionally identifies the strategy when
+  /// collecting the auto-resolved items (unique per strategy).
   Match match;          ///< classifies a solution (nullopt: not ours)
   const char *flagHint; ///< CLI option that enabled the strategy
   const char *summaryLabel; ///< untranslated heading for the Summary (mark N_(), render _())

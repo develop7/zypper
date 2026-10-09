@@ -10,7 +10,8 @@ Thu Oct 9 16:30:00 UTC 2026 - develop7@develop7.info
   non-interactive mode). This avoids aborting a whole unattended
   dist-upgrade just because one package cannot be replaced.
   Requires libzypp >= 17.39.0 (ProblemSolution::
-  getIfLocksInstalledOnly); silently a no-op with older libzypp.
+  getIfLocksInstalledOnly); with older libzypp dup warns that
+  the option is ignored.
 - Refactor solver problem auto-resolution into AutoResolveStrategy
   (predicate, flag hint and summary label travel as one value);
   --skip-not-applicable-patches is migrated to it. Auto-resolved

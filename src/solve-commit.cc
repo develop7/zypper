@@ -588,7 +588,7 @@ namespace {
 std::optional<std::set<PoolItem>> matchSkipsPatchesOnly( const ProblemSolution & sol_r )
 { return sol_r.getIfSkipsPatchesOnly(); }
 
-#if LIBZYPP_VERSION >= 173900 // ProblemSolution::getIfLocksInstalledOnly
+#if ZYPP_HAVE_LOCKS_INSTALLED_ONLY
 std::optional<std::set<PoolItem>> matchLocksInstalledOnly( const ProblemSolution & sol_r )
 { return sol_r.getIfLocksInstalledOnly(); }
 #endif
@@ -600,12 +600,20 @@ SolveAndCommitPolicy & SolveAndCommitPolicy::keepInstalled( bool enable )
 std::vector<AutoResolveStrategy> SolveAndCommitPolicy::autoResolveStrategies() const
 {
   std::vector<AutoResolveStrategy> strategies;
-  if ( _skipNotApplicablePatches )
+  // Each strategy must have a unique flagHint: it identifies the strategy
+  // when collecting the auto-resolved items.
+  auto uniqueFlagHint = [ &strategies ]( const char * flagHint_r ) {
+    for ( const auto & s : strategies )
+      if ( strcmp( s.flagHint, flagHint_r ) == 0 )
+        return false;
+    return true;
+  };
+  if ( _skipNotApplicablePatches && uniqueFlagHint( "--skip-not-applicable-patches" ) )
     strategies.push_back( { matchSkipsPatchesOnly, "--skip-not-applicable-patches",
       // translator: heading the list of patches skipped by 'patch --skip-not-applicable-patches'
       N_("Skipped needed patches which do not apply without conflict:") } );
-#if LIBZYPP_VERSION >= 173900 // ProblemSolution::getIfLocksInstalledOnly
-  if ( _keepInstalled )
+#if ZYPP_HAVE_LOCKS_INSTALLED_ONLY
+  if ( _keepInstalled && uniqueFlagHint( "--keep-installed" ) )
     strategies.push_back( { matchLocksInstalledOnly, "--keep-installed",
       // translator: heading the list of items kept in place by 'dup --keep-installed'
       N_("Kept installed although a dist-upgrade would have replaced them:") } );
